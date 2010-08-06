@@ -218,9 +218,11 @@ int main(int argc, char **argv) {
         if (previous == "") {
             previous = tag;
         }
+
         if (tag != previous) {
-            construct_output(config, *shape, pts, tag);
+            construct_output(config, *shape, pts, previous);
             pts.clear();
+            previous = tag;
         }
         pts.push_back(pt);
     }
