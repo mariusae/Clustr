@@ -10,6 +10,8 @@
 #include "clustr.h"
 #include "shapefile.h"
 
+#include <CGAL/Bbox_2.h>
+
 using namespace std;
 using namespace Clustr;
 
@@ -63,7 +65,7 @@ bool extract_alpha_component (Mesh::component &c, Polygon &poly, bool verbose)
     return true;
 }
 
-void construct_alpha_shape (Config &config, Shapefile &shape,
+void construct_alpha_shape (Config &config, Shapefile *shape,
                             vector<Point> &pts, string text)
 {
     coord_type alpha = config.alpha;
@@ -86,17 +88,28 @@ void construct_alpha_shape (Config &config, Shapefile &shape,
         if (extract_alpha_component(c, poly, config.verbose)) {
             if (config.verbose)
                 cerr << "Writing polygon for tag '" << text << "'." << endl;
-            write_polygon_to_shapefile(shape, poly, text, pts.size());
+            if (shape != NULL) {
+                write_polygon_to_shapefile(*shape, poly, text, pts.size());
+            } else if (poly.size() > 0){
+                vector<Ring>::iterator it = poly.begin();
+                CGAL::Bbox_2 bbox = poly.begin()->bbox();
+                for (it++; it != poly.end(); it++)
+                  bbox = bbox + it->bbox();
+
+                cout << text << " " 
+                     << bbox.xmin() << " " << bbox.xmax() << " " 
+                     << bbox.ymin() << " " << bbox.ymax() << endl;
+            }
         }
     }
 }
 
-void construct_output (Config &config, Shapefile &shape,
+void construct_output (Config &config, Shapefile *shape,
                        vector<Point> &pts, string tag) {
     cerr << "Got " << pts.size() << " points for tag '"
                    << tag << "'." << endl;
     if (config.points_only) {
-        write_points_to_shapefile(shape, pts, tag);
+        write_points_to_shapefile(*shape, pts, tag);
     } else {
         if (pts.size() >= 3) {
             construct_alpha_shape(config, shape, pts, tag);
@@ -121,6 +134,8 @@ void display_usage (void) {
          << "   -a <n>      set alpha value (default: use \"optimal\" value)"
          << endl
          << "   -p          output points to shapefile, instead of polygons" 
+         << endl
+         << "   -b          output bounding boxes to stdout instead of shapefile" 
          << endl 
          << endl
          << "If <input> is missing or given as \"-\", stdin is used."
@@ -134,7 +149,7 @@ void display_usage (void) {
 
 bool parse_options (Config &config, int argc, char **argv) {
     istringstream iss;
-    string optstring("a:pvh?");
+    string optstring("a:pbvh?");
 
     if (argc <= 1) {
         display_usage();
@@ -151,6 +166,9 @@ bool parse_options (Config &config, int argc, char **argv) {
             case 'p':
                 config.points_only = true;
                 break;
+            case 'b':
+                config.bbox = true;
+                break;
             case 'v':
                 config.verbose = true;
                 break;
@@ -161,6 +179,12 @@ bool parse_options (Config &config, int argc, char **argv) {
         }
         opt = getopt( argc, argv, optstring.c_str() );
     }
+
+    if (config.bbox && config.points_only) {
+        display_usage();
+        return false;
+    }
+
     if (optind < argc) {
         config.in_file = argv[optind++];
     } 
@@ -174,7 +198,7 @@ int main(int argc, char **argv) {
     vector<Point> points;
     istream *input;
     Config config;
-    Shapefile *shape;
+    Shapefile *shape = NULL;
 
     if (!parse_options(config, argc, argv))
         return 1;
@@ -193,7 +217,7 @@ int main(int argc, char **argv) {
         shape = new Shapefile(config.out_file, wkbPoint);
         shape->add_field("tag", OFTString, 64);
         
-    } else {
+    } else if (!config.bbox) {
         shape = new Shapefile(config.out_file, wkbPolygon);
         shape->add_field("tag", OFTString, 64);
         shape->add_field("count", OFTInteger, 8);
@@ -220,13 +244,13 @@ int main(int argc, char **argv) {
         }
 
         if (tag != previous) {
-            construct_output(config, *shape, pts, previous);
+            construct_output(config, shape, pts, previous);
             pts.clear();
             previous = tag;
         }
         pts.push_back(pt);
     }
-    construct_output(config, *shape, pts, tag);
+    construct_output(config, shape, pts, tag);
    
     // if you want to do memory leak testing, include <ogr_api.h> and 
     // uncomment the following line:

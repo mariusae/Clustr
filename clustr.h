@@ -174,6 +174,7 @@ namespace Clustr {
         coord_type alpha;
         bool points_only;
         bool verbose;
+        bool bbox;
 
         Config() {  
             in_file = "-"; 
