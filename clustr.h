@@ -175,13 +175,15 @@ namespace Clustr {
         bool points_only;
         bool verbose;
         bool bbox;
+        char field_delim;
 
         Config() {  
             in_file = "-"; 
             out_file = "clustr.shp";
             alpha = 0;
             points_only = false;   
-            verbose = false;   
+            verbose = false;
+            field_delim = ' ';
         };
     };
 };

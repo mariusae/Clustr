@@ -49,7 +49,7 @@ bool extract_alpha_component (Mesh::component &c, Polygon &poly, bool verbose)
     Ring ring;
 
     do {
-        ring.push_back(v->point());
+      ring.push_back(v->point());
     } while (*(++v) != v0);
 
     if (ring.size() < 4) {
@@ -96,7 +96,7 @@ void construct_alpha_shape (Config &config, Shapefile *shape,
                 for (it++; it != poly.end(); it++)
                   bbox = bbox + it->bbox();
 
-                cout << text << " " 
+                cout << text << config.field_delim
                      << bbox.xmin() << " " << bbox.xmax() << " " 
                      << bbox.ymin() << " " << bbox.ymax() << endl;
             }
@@ -149,7 +149,7 @@ void display_usage (void) {
 
 bool parse_options (Config &config, int argc, char **argv) {
     istringstream iss;
-    string optstring("a:pbvh?");
+    string optstring("a:tpbvh?");
 
     if (argc <= 1) {
         display_usage();
@@ -168,6 +168,14 @@ bool parse_options (Config &config, int argc, char **argv) {
                 break;
             case 'b':
                 config.bbox = true;
+                break;
+            case 't':
+                // iss.str((string) optarg);
+                // iss >> config.field_delim;
+                // if (config.field_delim == '\t')
+                //     cout << "field delim is tab!" << endl;
+                // cout << "field delim: " << (int)config.field_delim << " (" << config.field_delim << ")" << endl;
+                config.field_delim = '\t';
                 break;
             case 'v':
                 config.verbose = true;
@@ -235,10 +243,17 @@ int main(int argc, char **argv) {
 
     while (!getline(*input,line).eof()) {
         istringstream is(line);
-        if (!(is >> tag >> pt)) {
+        if (getline(is, tag, config.field_delim).eof()) {
             cerr << "Bad input line: " << line;
             continue;
         }
+
+        Point pt;
+        if (!(is >> pt)) {
+            cerr << "Bad input point (point): " << line;
+            continue;
+        }
+
         if (previous == "") {
             previous = tag;
         }
